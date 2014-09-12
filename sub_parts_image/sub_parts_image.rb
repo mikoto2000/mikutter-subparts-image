@@ -284,25 +284,25 @@ Plugin.create :sub_parts_image do
 
     # サブパーツを描画
     def render(context)
-      parts_height = UserConfig[:subparts_image_height]
+      parts_height = UserConfig[:subparts_image_height].to_f
       get_scaled_sizes()
 
       offset_row = 0
-      offset_x = 0
+      offset_x = 0.0
       Array(@main_icons).each_with_index { |icon, i|
         if icon
 
           context.save {
             width = icon.instance_variable_get(:@scaled_width)
             # はみ出しチェック
-            if offset_x + width > helper.width then
-              offset_x = 0
+            if offset_x + width.to_i > helper.width then
+              offset_x = 0.0
               offset_row += 1
             end
 
             scale = icon.instance_variable_get(:@scale_xy)
 
-            context.translate(offset_x, parts_height * offset_row)
+            context.translate(offset_x, parts_height * offset_row.to_f)
             context.scale(scale, scale)
             context.set_source_pixbuf(icon)
 
@@ -339,14 +339,14 @@ Plugin.create :sub_parts_image do
       get_scaled_sizes()
 
       offset_row = 0
-      offset_x = 0
+      offset_x = 0.0
       Array(@main_icons).each_with_index { |icon, i|
         if icon
           width = icon.instance_variable_get(:@scaled_width)
 
           # はみ出しチェック
-          if offset_x + width > helper.width then
-            offset_x = 0
+          if offset_x + width.to_i > helper.width then
+            offset_x = 0.0
             offset_row += 1
           end
 
@@ -355,18 +355,13 @@ Plugin.create :sub_parts_image do
       }
 
       row = offset_row + 1
-      row * UserConfig[:subparts_image_height].to_f
+      row * UserConfig[:subparts_image_height]
     end
 
     def get_scaled_sizes
       parts_height = UserConfig[:subparts_image_height].to_f
       Array(@main_icons).each_with_index { |icon, i|
           if icon then
-            # すでにスケール値がある、かつ、
-            # helper の幅が変わっていないのであれば、再計算の必要なし
-            if icon.instance_variable_get(:@scale_xy) &&
-                @prev_width == helper.width then return end
-
             width_ratio = helper.width.to_f / icon.width.to_f
             height_ratio = parts_height.to_f / icon.height.to_f
             scale_xy = [height_ratio, width_ratio].min
