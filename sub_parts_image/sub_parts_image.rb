@@ -273,6 +273,7 @@ Plugin.create :sub_parts_image do
     def initialize(*args)
       super
       @main_icons = []
+      @prev_width = -1
 
       if message
         # イメージ読み込みスレッドを起こす
@@ -283,25 +284,36 @@ Plugin.create :sub_parts_image do
 
     # サブパーツを描画
     def render(context)
+      parts_height = UserConfig[:subparts_image_height]
+      get_scaled_sizes()
+
+      offset_row = 0
+      offset_x = 0
       Array(@main_icons).each_with_index { |icon, i|
         if icon
-          parts_height = UserConfig[:subparts_image_height]
 
           context.save {
-            width_ratio = context.clip_extents[2] / icon.width 
-            height_ratio = parts_height.to_f / icon.height
-            scale_xy = [height_ratio, width_ratio].min
- 
-            context.translate((context.clip_extents[2] - icon.width * scale_xy) / 2, parts_height * i)
-            context.scale(scale_xy, scale_xy)
+            width = icon.instance_variable_get(:@scaled_width)
+            # はみ出しチェック
+            if offset_x + width > helper.width then
+              offset_x = 0
+              offset_row += 1
+            end
+
+            scale = icon.instance_variable_get(:@scale_xy)
+
+            context.translate(offset_x, parts_height * offset_row)
+            context.scale(scale, scale)
             context.set_source_pixbuf(icon)
 
             context.clip {
-              round = UserConfig[:subparts_image_round] / scale_xy
+              round = UserConfig[:subparts_image_round] / scale
               context.rounded_rectangle(0, 0, icon.width, icon.height, round)
             }
 
             context.paint(UserConfig[:subparts_image_tp] / 100.0)
+
+            offset_x += width
           }
         end
       }
@@ -310,7 +322,7 @@ Plugin.create :sub_parts_image do
 
     def height
       if !@main_icons.empty?
-        @num * UserConfig[:subparts_image_height]
+        calc_subparts_height
       else
         0
       end
@@ -321,6 +333,53 @@ Plugin.create :sub_parts_image do
 
     def message
       helper.message
+    end
+
+    def calc_subparts_height
+      get_scaled_sizes()
+
+      offset_row = 0
+      offset_x = 0
+      Array(@main_icons).each_with_index { |icon, i|
+        if icon
+          width = icon.instance_variable_get(:@scaled_width)
+
+          # はみ出しチェック
+          if offset_x + width > helper.width then
+            offset_x = 0
+            offset_row += 1
+          end
+
+          offset_x += width
+        end
+      }
+
+      row = offset_row + 1
+      row * UserConfig[:subparts_image_height].to_f
+    end
+
+    def get_scaled_sizes
+      parts_height = UserConfig[:subparts_image_height].to_f
+      Array(@main_icons).each_with_index { |icon, i|
+          if icon then
+            # すでにスケール値がある、かつ、
+            # helper の幅が変わっていないのであれば、再計算の必要なし
+            if icon.instance_variable_get(:@scale_xy) &&
+                @prev_width == helper.width then return end
+
+            width_ratio = helper.width.to_f / icon.width.to_f
+            height_ratio = parts_height.to_f / icon.height.to_f
+            scale_xy = [height_ratio, width_ratio].min
+
+            width = icon.width.to_f * scale_xy
+            height = icon.height.to_f * scale_xy
+
+            icon.instance_variable_set(:@scale_xy, scale_xy)
+            icon.instance_variable_set(:@scaled_width, width)
+            icon.instance_variable_set(:@scaled_height, height)
+          end
+      }
+      @prev_width = helper.width
     end
   end
 end
