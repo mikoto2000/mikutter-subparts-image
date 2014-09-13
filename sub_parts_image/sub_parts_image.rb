@@ -238,30 +238,33 @@ Plugin.create :sub_parts_image do
             next
           end
 
-          # クリック位置の特定
-          offset = helper.mainpart_height
+          # どの icon が押されたかを判定
+          @main_icons.each_with_index { |icon, i|
+            if icon then
+              left = icon.instance_variable_get(:@scaled_offset_x)
+              top = icon.instance_variable_get(:@scaled_offset_y)
+              right = left + icon.instance_variable_get(:@scaled_width)
+              bottom = top + icon.instance_variable_get(:@scaled_height)
 
-          helper.subparts.each { |part|
-            if part == self
-              break
-            end
+              offseted_y = y - helper.mainpart_height
 
-            offset += part.height
-          }
+              # イメージをクリックしたか
+              if (x >= left && x <= right &&
+                  offseted_y >= top && offseted_y <= bottom) then
+                case e.button
+                when 1
+                  Gtk::openurl(urls[i][:page_url])
 
-          @num.times { |i|
-            # イメージをクリックした
-            if (offset + (i * UserConfig[:subparts_image_height])) <= y && (offset + ((i + 1) * UserConfig[:subparts_image_height])) >= y
-              case e.button
-              when 1
-                Gtk::openurl(urls[i][:page_url])
+                  @ignore_event = true
 
-                @ignore_event = true
+                  Thread.new {
+                    sleep(0.5)
+                    @ignore_event = false
+                  }
+                end
 
-                Thread.new {
-                  sleep(0.5)
-                  @ignore_event = false
-                }
+                # クリックしたイメージにたどり着いたら終了
+                break
               end
             end
           }
@@ -294,13 +297,17 @@ Plugin.create :sub_parts_image do
 
           context.save {
             width = icon.instance_variable_get(:@scaled_width)
+
             # はみ出しチェック
             if offset_x + width.to_i > helper.width then
               offset_x = 0.0
               offset_row += 1
             end
 
+            # アイコンの描画座標情報を記録
             scale = icon.instance_variable_get(:@scale_xy)
+            icon.instance_variable_set(:@scaled_offset_x, offset_x * scale)
+            icon.instance_variable_set(:@scaled_offset_y, icon.height.to_f * offset_row.to_f * scale)
 
             context.translate(offset_x, parts_height * offset_row.to_f)
             context.scale(scale, scale)
