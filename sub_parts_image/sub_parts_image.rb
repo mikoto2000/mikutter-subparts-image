@@ -17,19 +17,35 @@ class ImageLoadHelper
     end
   end
 
+
   # メッセージに含まれるURLとエンティティを抽出する
   def self.extract_urls_by_message(message)
-    target = []
+    entities = [
+      { :symbol => :entities, :filter => lambda { |images| images.sort { |_| _[:entity][:indices][0] } } },
+      { :symbol => :extended_entities, :filter => nil },
+    ]
 
-    if message[:entities]
-      target = message[:entities][:urls].map { |m| { :url => m[:expanded_url], :entity => m } }
+    targets = entities.inject([]) { |result, entities|
+      symbol = entities[:symbol]
 
-      if message[:entities][:media]
-        target += message[:entities][:media].map { |m| { :url => m[:media_url], :entity => m } }
+      if message[symbol]
+        if message[symbol][:urls]
+          result += message[symbol][:urls].map { |m| { :url => m[:expanded_url], :entity => m } }
+        end
+
+        if message[symbol][:media]
+          result += message[symbol][:media].map { |m| { :url => m[:media_url], :entity => m } }
+        end
       end
-    end
 
-    target
+      if entities[:filter]
+        entities[:filter].call(result)
+      else
+        result
+      end
+    }
+
+    targets.uniq { |_| _[:url] }
   end
 
 
@@ -46,9 +62,23 @@ class ImageLoadHelper
       else
         nil
       end
-    }.compact.sort { |a| a[:entity][:indices][0] } 
+    }.compact
 
     result
+  end
+
+
+  # 生データをPixbufに変換する
+  def self.raw2pixbuf(raw, parts_height)
+    loader = Gdk::PixbufLoader.new
+    loader.write(raw)
+    loader.close
+ 
+    loader.pixbuf
+  rescue => e
+    puts e
+    puts e.backtrace
+    Gdk::WebImageLoader.notfound_pixbuf(parts_height, parts_height).melt
   end
 
 
@@ -72,20 +102,10 @@ class ImageLoadHelper
       image = Gdk::WebImageLoader.get_raw_data(url[:image_url]) { |data, exception|
         # 即ロード出来なかった => ロード完了
 
-        if !exception && data
-          begin
-            loader = Gdk::PixbufLoader.new
-            loader.write data
-            loader.close
- 
-            main_icon = loader.pixbuf
-          rescue => e
-            puts e
-            puts e.backtrace
-            main_icon = Gdk::WebImageLoader.notfound_pixbuf(parts_height, parts_height).melt
-          end
+        main_icon = if !exception && data
+          ImageLoadHelper.raw2pixbuf(data, parts_height)
         else
-          main_icon = Gdk::WebImageLoader.notfound_pixbuf(parts_height, parts_height).melt
+          Gdk::WebImageLoader.notfound_pixbuf(parts_height, parts_height).melt
         end
 
         if main_icon
@@ -108,11 +128,7 @@ class ImageLoadHelper
 
         # 即ロード成功
         else
-          loader = Gdk::PixbufLoader.new
-          loader.write image
-          loader.close
-
-          loader.pixbuf
+          ImageLoadHelper.raw2pixbuf(image, parts_height)
       end
 
       # コールバックを呼び出す
@@ -198,7 +214,6 @@ Plugin.create :sub_parts_image do
   class Gdk::SubPartsImage < Gdk::SubParts
     regist
 
-
     def on_image_loaded(pos, url, pixbuf)
       # イメージ取得完了
 
@@ -232,12 +247,12 @@ Plugin.create :sub_parts_image do
         # クリックイベント
         @ignore_event = false
 
-        helper.ssc(:click) { |this, e, x, y|
-          # なぜか２回連続でクリックイベントが飛んでくるのでアドホックに回避する
-          if @ignore_event 
-            next
-          end
+        if @click_sid
+           helper.signal_handler_disconnect(@click_sid)
+           @click_sid = nil
+        end
 
+#<<<<<<< HEAD
           # どの icon が押されたかを判定
           @main_icons.each_with_index { |icon, i|
             if icon then
@@ -265,10 +280,30 @@ Plugin.create :sub_parts_image do
 
                 # クリックしたイメージにたどり着いたら終了
                 break
+#=======
+#        @click_sid = helper.ssc(:click) { |this, e, x, y|
+#          # クリック位置の特定
+#          offset = helper.mainpart_height
+#
+#          helper.subparts.each { |part|
+#            if part == self
+#              break
+#            end
+#
+#            offset += part.height
+#          }
+#
+#          @num.times { |i|
+#            # イメージをクリックした
+#            if (offset + (i * UserConfig[:subparts_image_height])) <= y && (offset + ((i + 1) * UserConfig[:subparts_image_height])) >= y
+#              case e.button
+#              when 1
+#                Gtk::openurl(urls[i][:page_url])
+#>>>>>>> mgn/master
               end
             end
           }
-        }
+#        }
       end
     end
 
