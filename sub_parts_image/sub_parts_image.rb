@@ -227,6 +227,8 @@ Plugin.create :sub_parts_image do
         }
       end
 
+      @main_icons[pos] = pixbuf
+
       # ロードが完了するたびに高さを更新する
       helper.reset_height
 
