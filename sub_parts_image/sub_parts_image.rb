@@ -252,7 +252,18 @@ Plugin.create :sub_parts_image do
            @click_sid = nil
         end
 
-#<<<<<<< HEAD
+        @click_sid = helper.ssc(:click) { |this, e, x, y|
+          # クリック位置の特定
+          offset = helper.mainpart_height
+
+          helper.subparts.each { |part|
+            if part == self
+              break
+            end
+
+            offset += part.height
+          }
+
           # どの icon が押されたかを判定
           @main_icons.each_with_index { |icon, i|
             if icon then
@@ -261,7 +272,7 @@ Plugin.create :sub_parts_image do
               right = left + icon.instance_variable_get(:@scaled_width)
               bottom = top + icon.instance_variable_get(:@scaled_height)
 
-              offseted_y = y - helper.mainpart_height
+              offseted_y = y - offset
 
               # イメージをクリックしたか
               if (x >= left && x <= right &&
@@ -280,30 +291,10 @@ Plugin.create :sub_parts_image do
 
                 # クリックしたイメージにたどり着いたら終了
                 break
-#=======
-#        @click_sid = helper.ssc(:click) { |this, e, x, y|
-#          # クリック位置の特定
-#          offset = helper.mainpart_height
-#
-#          helper.subparts.each { |part|
-#            if part == self
-#              break
-#            end
-#
-#            offset += part.height
-#          }
-#
-#          @num.times { |i|
-#            # イメージをクリックした
-#            if (offset + (i * UserConfig[:subparts_image_height])) <= y && (offset + ((i + 1) * UserConfig[:subparts_image_height])) >= y
-#              case e.button
-#              when 1
-#                Gtk::openurl(urls[i][:page_url])
-#>>>>>>> mgn/master
               end
             end
           }
-#        }
+        }
       end
     end
 
@@ -341,7 +332,7 @@ Plugin.create :sub_parts_image do
 
             # アイコンの描画座標情報を記録
             scale = icon.instance_variable_get(:@scale_xy)
-            icon.instance_variable_set(:@scaled_offset_x, offset_x * scale)
+            icon.instance_variable_set(:@scaled_offset_x, offset_x)
             icon.instance_variable_set(:@scaled_offset_y, icon.height.to_f * offset_row.to_f * scale)
 
             context.translate(offset_x, parts_height * offset_row.to_f)
