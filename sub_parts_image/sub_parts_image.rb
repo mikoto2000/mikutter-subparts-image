@@ -227,13 +227,8 @@ Plugin.create :sub_parts_image do
         }
       end
 
-      # 初回表示の場合、TLの高さを変更する
-      first_disp = @main_icons.empty?
-      @main_icons[pos] = pixbuf
-
-      if first_disp
-        helper.reset_height
-      end
+      # ロードが完了するたびに高さを更新する
+      helper.reset_height
 
       # サブパーツ描画
       helper.on_modify
